@@ -84,10 +84,11 @@ const engineerAdminCards: CardConfig[] = Array.from({ length: 5 }).map(
   })
 );
 
-const alumniCards: CardConfig[] = Array.from({ length: 10 }).map(
+const alumniCards: CardConfig[] = Array.from({ length: 15 }).map(
   (_, index) => ({
     id: `alumni-${index + 1}`,
-    team: (((index / 2) | 0) + 1) as TeamId,
+    // 0~4 → 1~5, 5~9 → 1~5, 10~14 → 1~5
+    team: (((index % 5) + 1) as TeamId),
   })
 );
 
