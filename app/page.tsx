@@ -477,10 +477,10 @@ export default function Home() {
                     Hateslop Networking
                   </p>
                   <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
-                    오늘의 팀 라인업
+                    네트워킹 팀 라인업
                   </h1>
                   <p className="mt-2 text-xs text-zinc-400 sm:text-sm">
-                    각 팀의 캐릭터와 분위기를 먼저 보고, 다음 단계에서 실제 배정 대시보드로 이동합니다.
+                    각 팀의 이름과 캐릭터를 먼저 보고, 다음 단계에서 실제 배정 대시보드로 이동합니다.
                   </p>
                 </div>
               </div>
