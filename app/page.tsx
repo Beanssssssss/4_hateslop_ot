@@ -3,15 +3,9 @@
 import Image from "next/image";
 import { useEffect, useState } from "react";
 
-type RoleTab =
-  | "producerAdmin"
-  | "producerMember"
-  | "engineerAdmin"
-  | "engineerMember"
-  | "alumni"
-  | "summary";
+type RoleTab = "producerMember" | "engineerMember" | "alumni" | "summary";
 
-type TeamId = 1 | 2 | 3 | 4 | 5;
+type TeamId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
 type RoleType =
   | "프로듀서 운영진"
@@ -38,59 +32,29 @@ const TEAM_NAMES: Record<TeamId, string> = {
   3: "선글라스 낀 하프물범",
   4: "전력질주하는 거북이",
   5: "휘파람 부는 수달",
+  6: "통나무 스시 마스터 비버",
+  7: "셀카 찍는 미어캣",
+  8: "외줄타는 판다",
 };
 
 const TEAM_IMAGES: Record<TeamId, { src: string; alt: string }> = {
-  1: { src: "/1.png", alt: "크루아상 서리하는 라쿤" },
-  2: { src: "/2.png", alt: "멍때리는 카피바라" },
-  3: { src: "/3.png", alt: "선글라스 낀 하프물범" },
-  4: { src: "/4.png", alt: "전력질주하는 거북이" },
-  5: { src: "/5.png", alt: "휘파람 부는 수달" },
+  1: { src: "/team1.png", alt: "크루아상 서리하는 라쿤" },
+  2: { src: "/team2.png", alt: "멍때리는 카피바라" },
+  3: { src: "/team3.png", alt: "선글라스 낀 하프물범" },
+  4: { src: "/team4.png", alt: "전력질주하는 거북이" },
+  5: { src: "/team5.png", alt: "휘파람 부는 수달" },
+  6: { src: "/team6.png", alt: "통나무 스시 마스터 비버" },
+  7: { src: "/team7.png", alt: "셀카 찍는 미어캣" },
+  8: { src: "/team8.png", alt: "외줄타는 판다" },
 };
 
-const ASSIGNMENTS_STORAGE_KEY = "networking_assignments_v1";
-const USED_CARDS_STORAGE_KEY = "networking_used_cards_v1";
+const PD_ADMINS = ["정나림", "권세빈", "홍서원"];
+const ENG_ADMINS = ["구종빈", "민경호", "이홍겸", "박지민", "김윤진"];
 
 function getTeamLabel(team: TeamId, withPrefix: boolean = true): string {
   const name = TEAM_NAMES[team];
   return withPrefix ? `Team ${name}` : name;
 }
-
-const producerMemberCards: CardConfig[] = Array.from({ length: 10 }).map(
-  (_, index) => ({
-    id: `producer-member-${index + 1}`,
-    team: (((index / 2) | 0) + 1) as TeamId,
-  })
-);
-
-const engineerMemberCards: CardConfig[] = Array.from({ length: 10 }).map(
-  (_, index) => ({
-    id: `engineer-member-${index + 1}`,
-    team: (((index / 2) | 0) + 1) as TeamId,
-  })
-);
-
-const producerAdminCards: CardConfig[] = Array.from({ length: 5 }).map(
-  (_, index) => ({
-    id: `producer-admin-${index + 1}`,
-    team: (index + 1) as TeamId,
-  })
-);
-
-const engineerAdminCards: CardConfig[] = Array.from({ length: 5 }).map(
-  (_, index) => ({
-    id: `engineer-admin-${index + 1}`,
-    team: (index + 1) as TeamId,
-  })
-);
-
-const alumniCards: CardConfig[] = Array.from({ length: 15 }).map(
-  (_, index) => ({
-    id: `alumni-${index + 1}`,
-    // 0~4 → 1~5, 5~9 → 1~5, 10~14 → 1~5
-    team: (((index % 5) + 1) as TeamId),
-  })
-);
 
 function shuffle<T>(array: T[]): T[] {
   const arr = [...array];
@@ -105,22 +69,12 @@ type CardsTab = Exclude<RoleTab, "summary">;
 
 type CardsState = Record<CardsTab, CardConfig[]>;
 
-const initialCardsByTab: CardsState = {
-  producerAdmin: producerAdminCards,
-  producerMember: producerMemberCards,
-  engineerAdmin: engineerAdminCards,
-  engineerMember: engineerMemberCards,
-  alumni: alumniCards,
-};
+const STATE_STORAGE_KEY = "networking_state_v1";
 
 function getLabelForTab(tab: RoleTab): RoleType {
   switch (tab) {
-    case "producerAdmin":
-      return "프로듀서 운영진";
     case "producerMember":
       return "프로듀서 부원";
-    case "engineerAdmin":
-      return "엔지니어 운영진";
     case "engineerMember":
       return "엔지니어 부원";
     case "alumni":
@@ -131,72 +85,183 @@ function getLabelForTab(tab: RoleTab): RoleType {
 }
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<RoleTab>("producerAdmin");
+  const [activeTab, setActiveTab] = useState<RoleTab>("producerMember");
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [usedCardIds, setUsedCardIds] = useState<Set<string>>(new Set());
   const [flippingCardId, setFlippingCardId] = useState<string | null>(null);
-  const [cardsByTab, setCardsByTab] = useState<CardsState>(initialCardsByTab);
+  const [cardsByTab, setCardsByTab] = useState<CardsState>({
+    producerMember: [],
+    engineerMember: [],
+    alumni: [],
+  });
   const [showIntro, setShowIntro] = useState(true);
+  const [showAdminReveal, setShowAdminReveal] = useState(false);
+  const [adminRevealIndex, setAdminRevealIndex] = useState(0);
 
   const label = getLabelForTab(activeTab);
-
-  // 초기 로드: localStorage에서 기존 배정 / 사용된 카드 복원
+  // 새로고침 시 현재 상태 복원 (동일 탭 내)
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const storedAssignments = window.sessionStorage.getItem(
-        ASSIGNMENTS_STORAGE_KEY
-      );
-      const storedUsedCards = window.sessionStorage.getItem(
-        USED_CARDS_STORAGE_KEY
-      );
-
-      if (storedAssignments) {
-        const parsed = JSON.parse(storedAssignments) as Assignment[];
-        if (Array.isArray(parsed)) {
-          setAssignments(parsed);
-        }
-      }
-
-      if (storedUsedCards) {
-        const parsed = JSON.parse(storedUsedCards) as string[];
-        if (Array.isArray(parsed)) {
-          setUsedCardIds(new Set(parsed));
-        }
-      }
+      const raw = window.sessionStorage.getItem(STATE_STORAGE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw) as {
+        activeTab: RoleTab;
+        assignments: Assignment[];
+        usedCardIds: string[];
+        cardsByTab: CardsState;
+        showIntro: boolean;
+        showAdminReveal: boolean;
+        adminRevealIndex: number;
+      };
+      setActiveTab(parsed.activeTab ?? "producerMember");
+      setAssignments(Array.isArray(parsed.assignments) ? parsed.assignments : []);
+      setUsedCardIds(new Set(parsed.usedCardIds ?? []));
+      setCardsByTab({
+        producerMember: parsed.cardsByTab?.producerMember ?? [],
+        engineerMember: parsed.cardsByTab?.engineerMember ?? [],
+        alumni: parsed.cardsByTab?.alumni ?? [],
+      });
+      setShowIntro(parsed.showIntro ?? false);
+      setShowAdminReveal(parsed.showAdminReveal ?? false);
+      setAdminRevealIndex(parsed.adminRevealIndex ?? 0);
     } catch {
-      // 저장된 값이 깨져 있으면 그냥 무시하고 새 세션으로 시작
+      // 저장 포맷이 깨져 있으면 무시하고 새 세션으로 시작
     }
   }, []);
 
+  // 상태 변경 시 세션 스토리지에 저장 (동일 탭 새로고침에만 영향)
   useEffect(() => {
-    // 클라이언트 마운트 후 각 탭 카드 한 번씩 섞기 (알럼나이 포함)
-    setCardsByTab((prev) => ({
-      ...prev,
-      producerAdmin: shuffle(prev.producerAdmin),
-      producerMember: shuffle(prev.producerMember),
-      engineerAdmin: shuffle(prev.engineerAdmin),
-      engineerMember: shuffle(prev.engineerMember),
-      alumni: shuffle(prev.alumni),
+    if (typeof window === "undefined") return;
+    try {
+      const payload = JSON.stringify({
+        activeTab,
+        assignments,
+        usedCardIds: Array.from(usedCardIds),
+        cardsByTab,
+        showIntro,
+        showAdminReveal,
+        adminRevealIndex,
+      });
+      window.sessionStorage.setItem(STATE_STORAGE_KEY, payload);
+    } catch {
+      // ignore
+    }
+  }, [
+    activeTab,
+    assignments,
+    usedCardIds,
+    cardsByTab,
+    showIntro,
+    showAdminReveal,
+    adminRevealIndex,
+  ]);
+
+  const handleStartDashboard = () => {
+    // 새 라운드 시작 시 기존 상태 초기화
+    if (typeof window !== "undefined") {
+      try {
+        window.sessionStorage.removeItem(STATE_STORAGE_KEY);
+      } catch {
+        // ignore
+      }
+    }
+    // 1) 운영진 8명을 8팀에 랜덤 배치 (각 팀 1명씩)
+    const teams: TeamId[] = [1, 2, 3, 4, 5, 6, 7, 8];
+    const shuffledTeams = shuffle(teams);
+    const pdTeams = shuffledTeams.slice(0, 3);
+    const engTeams = shuffledTeams.slice(3, 8);
+
+    const adminAssignments: Assignment[] = [
+      ...PD_ADMINS.map((name, idx) => ({
+        id: `pd-admin-${idx + 1}`,
+        name,
+        team: pdTeams[idx],
+        role: "프로듀서 운영진" as RoleType,
+      })),
+      ...ENG_ADMINS.map((name, idx) => ({
+        id: `eng-admin-${idx + 1}`,
+        name,
+        team: engTeams[idx],
+        role: "엔지니어 운영진" as RoleType,
+      })),
+    ];
+
+    // 2) 부원/알럼나이 카드 분배
+    // 기본: 각 팀마다 피디 부원 1, 엔지니어 부원 1, 알럼나이 1
+    const baseProducerMemberCards: CardConfig[] = teams.map((team, idx) => ({
+      id: `producer-member-base-${idx + 1}`,
+      team,
     }));
-  }, []);
+    const baseEngineerMemberCards: CardConfig[] = teams.map((team, idx) => ({
+      id: `engineer-member-base-${idx + 1}`,
+      team,
+    }));
+    const baseAlumniCards: CardConfig[] = teams.map((team, idx) => ({
+      id: `alumni-base-${idx + 1}`,
+      team,
+    }));
 
-  // 배정 / 사용된 카드가 바뀔 때마다 localStorage에 저장
+    // 추가: 2 피디 부원, 2 엔지니어 부원, 3 알럼나이 → 총 7장
+    const extraTeams = shuffle(teams).slice(0, 7);
+    const extraProducerTeams = extraTeams.slice(0, 2);
+    const extraEngineerTeams = extraTeams.slice(2, 4);
+    const extraAlumniTeams = extraTeams.slice(4, 7);
+
+    const extraProducerMemberCards: CardConfig[] = extraProducerTeams.map(
+      (team, idx) => ({
+        id: `producer-member-extra-${idx + 1}`,
+        team,
+      })
+    );
+    const extraEngineerMemberCards: CardConfig[] = extraEngineerTeams.map(
+      (team, idx) => ({
+        id: `engineer-member-extra-${idx + 1}`,
+        team,
+      })
+    );
+    const extraAlumniCards: CardConfig[] = extraAlumniTeams.map(
+      (team, idx) => ({
+        id: `alumni-extra-${idx + 1}`,
+        team,
+      })
+    );
+
+    setAssignments(adminAssignments);
+    setUsedCardIds(new Set());
+    setCardsByTab({
+      producerMember: shuffle([
+        ...baseProducerMemberCards,
+        ...extraProducerMemberCards,
+      ]),
+      engineerMember: shuffle([
+        ...baseEngineerMemberCards,
+        ...extraEngineerMemberCards,
+      ]),
+      alumni: shuffle([...baseAlumniCards, ...extraAlumniCards]),
+    });
+    setActiveTab("producerMember");
+    setShowIntro(false);
+    setAdminRevealIndex(0);
+    setShowAdminReveal(true);
+  };
+
+  // 운영진 매핑 카드 애니메이션: 1팀씩 순차적으로 등장
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.sessionStorage.setItem(
-        ASSIGNMENTS_STORAGE_KEY,
-        JSON.stringify(assignments)
-      );
-      window.sessionStorage.setItem(
-        USED_CARDS_STORAGE_KEY,
-        JSON.stringify(Array.from(usedCardIds))
-      );
-    } catch {
-      // 저장 실패해도 UI는 그대로 동작하도록 무시
-    }
-  }, [assignments, usedCardIds]);
+    if (!showAdminReveal) return;
+    setAdminRevealIndex(0);
+    const maxIndex = 7; // 0~7 → 8팀
+    const interval = window.setInterval(() => {
+      setAdminRevealIndex((prev) => {
+        if (prev >= maxIndex) {
+          window.clearInterval(interval);
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 600);
+    return () => window.clearInterval(interval);
+  }, [showAdminReveal]);
 
   const currentTabKey =
     activeTab === "summary" ? "producerMember" : (activeTab as CardsTab);
@@ -242,9 +307,7 @@ export default function Home() {
   };
 
   const tabs: { id: RoleTab; label: string }[] = [
-    { id: "producerAdmin", label: "프로듀서 운영진" },
     { id: "producerMember", label: "프로듀서 부원" },
-    { id: "engineerAdmin", label: "엔지니어 운영진" },
     { id: "engineerMember", label: "엔지니어 부원" },
     { id: "alumni", label: "알럼나이" },
     { id: "summary", label: "종합" },
@@ -276,7 +339,7 @@ export default function Home() {
               <div className={`card-inner ${isFlipping ? "is-flipped" : ""}`}>
                 <div className="card-face back">
                   <Image
-                    src="/card.svg"
+                    src="/card.png"
                     alt="Card back"
                     fill
                     sizes="(min-width: 1024px) 12rem, (min-width: 768px) 16rem, 100vw"
@@ -321,7 +384,7 @@ export default function Home() {
   };
 
   const renderSummaryTable = () => {
-    const teams: TeamId[] = [1, 2, 3, 4, 5];
+    const teams: TeamId[] = [1, 2, 3, 4, 5, 6, 7, 8];
 
     const rows: { [K in TeamId]: Assignment[] } = {
       1: [],
@@ -329,6 +392,9 @@ export default function Home() {
       3: [],
       4: [],
       5: [],
+      6: [],
+      7: [],
+      8: [],
     };
 
     assignments.forEach((assignment) => {
@@ -367,10 +433,10 @@ export default function Home() {
                     >
                       {item ? (
                         <div className="flex flex-col items-center gap-1">
-                          <span className="text-sm font-semibold text-zinc-900">
+                          <span className="text-sm font-semibold text-zinc-900 whitespace-nowrap">
                             {item.name}
                           </span>
-                          <span className="rounded-full bg-zinc-900/90 px-2 py-0.5 text-[10px] font-medium text-zinc-100">
+                          <span className="rounded-full bg-zinc-900/90 px-2 py-0.5 text-[10px] font-medium text-zinc-100 whitespace-nowrap">
                             {item.role}
                           </span>
                         </div>
@@ -422,7 +488,7 @@ export default function Home() {
           </div>
 
           <section className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {[1, 2, 3, 4, 5].map((team) => (
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((team) => (
               <div
                 key={team}
                 className="relative h-52 overflow-hidden rounded-2xl border border-zinc-800/70 bg-zinc-900/60 shadow-[0_18px_45px_rgba(0,0,0,0.7)]"
@@ -449,12 +515,105 @@ export default function Home() {
 
           <div className="mt-10 flex justify-end">
             <button
-              onClick={() => setShowIntro(false)}
+              onClick={handleStartDashboard}
               className="inline-flex items-center gap-2 rounded-full bg-zinc-50 px-6 py-2.5 text-xs font-semibold text-zinc-950 shadow-[0_12px_35px_rgba(0,0,0,0.6)] transition-all hover:-translate-y-0.5 hover:bg-zinc-200"
             >
               다음으로
               <span className="text-[10px] tracking-[0.24em] uppercase">
                 Go to Dashboard
+              </span>
+            </button>
+          </div>
+        </main>
+      ) : showAdminReveal ? (
+        <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-10">
+          <div className="relative overflow-hidden rounded-3xl border border-zinc-800/70 bg-zinc-900/60 shadow-[0_24px_80px_rgba(0,0,0,0.75)] backdrop-blur-xl">
+            <div className="relative h-40 w-full overflow-hidden sm:h-52 md:h-60">
+              <Image
+                src="/hateslop_banner.png"
+                alt="Hateslop Networking"
+                fill
+                priority
+                className="object-cover"
+              />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-zinc-950/95 via-zinc-950/40 to-zinc-950/0" />
+            </div>
+
+            <div className="relative z-10 px-6 pb-8 pt-5 sm:px-8 sm:pb-10 sm:pt-6">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                  <p className="text-[11px] font-medium uppercase tracking-[0.3em] text-zinc-400">
+                    Hateslop Networking
+                  </p>
+                  <h1 className="mt-2 text-2xl font-semibold tracking-tight text-zinc-50 sm:text-3xl">
+                    운영진 팀 매핑 결과
+                  </h1>
+                  <p className="mt-2 text-xs text-zinc-400 sm:text-sm">
+                    프로듀서·엔지니어 운영진 8명이 각 팀에 한 명씩 자동으로 배정되었습니다.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <section className="mt-8 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((team, idx) => {
+              const admin = assignments.find(
+                (a) =>
+                  (a.role === "프로듀서 운영진" ||
+                    a.role === "엔지니어 운영진") &&
+                  a.team === team
+              );
+              return (
+                <div
+                  key={team}
+                  className={`relative h-56 overflow-hidden rounded-2xl border border-zinc-800/70 bg-zinc-900/60 shadow-[0_18px_45px_rgba(0,0,0,0.7)] transition-all duration-500 ${
+                    idx <= adminRevealIndex
+                      ? "opacity-100 translate-y-0"
+                      : "pointer-events-none opacity-0 translate-y-4"
+                  }`}
+                >
+                  <Image
+                    src={TEAM_IMAGES[team as TeamId].src}
+                    alt={TEAM_IMAGES[team as TeamId].alt}
+                    fill
+                    sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 100vw"
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-zinc-950/95 via-zinc-950/40 to-transparent" />
+                  <div className="absolute inset-x-0 bottom-3 flex flex-col items-center px-3 text-center">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-zinc-300">
+                      Team {team}
+                    </p>
+                    <h2 className="mt-1 text-sm font-semibold text-zinc-50">
+                      {TEAM_NAMES[team as TeamId]}
+                    </h2>
+                    {admin && (
+                      <div className="mt-2 flex flex-col items-center gap-1">
+                        <span className="rounded-full bg-zinc-950/80 px-2 py-0.5 text-[10px] font-medium text-zinc-100">
+                          {admin.role}
+                        </span>
+                        <span className="text-xs font-semibold text-zinc-50">
+                          {admin.name}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </section>
+
+          <div className="mt-10 flex justify-end">
+            <button
+              onClick={() => {
+                setShowAdminReveal(false);
+              }}
+              className="inline-flex items-center gap-2 rounded-full bg-zinc-50 px-6 py-2.5 text-xs font-semibold text-zinc-950 shadow-[0_12px_35px_rgba(0,0,0,0.6)] transition-all hover:-translate-y-0.5 hover:bg-zinc-200"
+            >
+              카드 뽑기 시작
+              <span className="text-[10px] tracking-[0.24em] uppercase">
+                Go to Cards
               </span>
             </button>
           </div>
