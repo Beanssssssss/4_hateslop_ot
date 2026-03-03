@@ -130,7 +130,7 @@ function getLabelForTab(tab: RoleTab): RoleType {
 }
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<RoleTab>("producerMember");
+  const [activeTab, setActiveTab] = useState<RoleTab>("producerAdmin");
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [usedCardIds, setUsedCardIds] = useState<Set<string>>(new Set());
   const [flippingCardId, setFlippingCardId] = useState<string | null>(null);
