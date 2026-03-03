@@ -48,6 +48,9 @@ const TEAM_IMAGES: Record<TeamId, { src: string; alt: string }> = {
   5: { src: "/5.png", alt: "휘파람 부는 수달" },
 };
 
+const ASSIGNMENTS_STORAGE_KEY = "networking_assignments_v1";
+const USED_CARDS_STORAGE_KEY = "networking_used_cards_v1";
+
 function getTeamLabel(team: TeamId, withPrefix: boolean = true): string {
   const name = TEAM_NAMES[team];
   return withPrefix ? `Team ${name}` : name;
@@ -136,6 +139,35 @@ export default function Home() {
 
   const label = getLabelForTab(activeTab);
 
+  // 초기 로드: localStorage에서 기존 배정 / 사용된 카드 복원
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const storedAssignments = window.localStorage.getItem(
+        ASSIGNMENTS_STORAGE_KEY
+      );
+      const storedUsedCards = window.localStorage.getItem(
+        USED_CARDS_STORAGE_KEY
+      );
+
+      if (storedAssignments) {
+        const parsed = JSON.parse(storedAssignments) as Assignment[];
+        if (Array.isArray(parsed)) {
+          setAssignments(parsed);
+        }
+      }
+
+      if (storedUsedCards) {
+        const parsed = JSON.parse(storedUsedCards) as string[];
+        if (Array.isArray(parsed)) {
+          setUsedCardIds(new Set(parsed));
+        }
+      }
+    } catch {
+      // 저장된 값이 깨져 있으면 그냥 무시하고 새 세션으로 시작
+    }
+  }, []);
+
   useEffect(() => {
     // 클라이언트 마운트 후 각 탭 카드 한 번씩 섞기 (알럼나이 포함)
     setCardsByTab((prev) => ({
@@ -147,6 +179,23 @@ export default function Home() {
       alumni: shuffle(prev.alumni),
     }));
   }, []);
+
+  // 배정 / 사용된 카드가 바뀔 때마다 localStorage에 저장
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        ASSIGNMENTS_STORAGE_KEY,
+        JSON.stringify(assignments)
+      );
+      window.localStorage.setItem(
+        USED_CARDS_STORAGE_KEY,
+        JSON.stringify(Array.from(usedCardIds))
+      );
+    } catch {
+      // 저장 실패해도 UI는 그대로 동작하도록 무시
+    }
+  }, [assignments, usedCardIds]);
 
   const currentTabKey =
     activeTab === "summary" ? "producerMember" : (activeTab as CardsTab);
