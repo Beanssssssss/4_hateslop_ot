@@ -273,18 +273,15 @@ export default function Home() {
               className="group card-3d relative h-56 w-full cursor-pointer rounded-2xl border border-zinc-800/80 bg-transparent text-white shadow-[0_18px_45px_rgba(0,0,0,0.6)] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_24px_60px_rgba(0,0,0,0.8)]"
             >
               <div className={`card-inner ${isFlipping ? "is-flipped" : ""}`}>
-                <div
-                  className="card-face back"
-                  style={{ backgroundImage: 'url("/card.svg")' }}
-                >
-                  <div className="flex h-full items-end justify-between px-3 pb-2 text-[10px] text-zinc-200/80">
-                    <span className="uppercase tracking-[0.2em]">
-                      Hateslop
-                    </span>
-                    <span className="rounded-full bg-black/40 px-2 py-0.5 text-[9px] uppercase tracking-[0.18em]">
-                      Networking
-                    </span>
-                  </div>
+                <div className="card-face back">
+                  <Image
+                    src="/card.svg"
+                    alt="Card back"
+                    fill
+                    sizes="(min-width: 1024px) 12rem, (min-width: 768px) 16rem, 100vw"
+                    className="object-cover"
+                    priority
+                  />
                 </div>
                 <div className="card-face front bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-800 p-4">
                   <div className="flex h-full flex-col justify-between">
