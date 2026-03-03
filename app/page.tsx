@@ -202,11 +202,11 @@ export default function Home() {
       team,
     }));
 
-    // 추가: 2 피디 부원, 2 엔지니어 부원, 3 알럼나이 → 총 7장
-    const extraTeams = shuffle(teams).slice(0, 7);
+    // 추가: 2 피디 부원, 2 엔지니어 부원, 4 알럼나이 → 총 8장 (각 팀당 추가 1명)
+    const extraTeams = shuffle(teams);
     const extraProducerTeams = extraTeams.slice(0, 2);
     const extraEngineerTeams = extraTeams.slice(2, 4);
-    const extraAlumniTeams = extraTeams.slice(4, 7);
+    const extraAlumniTeams = extraTeams.slice(4, 8);
 
     const extraProducerMemberCards: CardConfig[] = extraProducerTeams.map(
       (team, idx) => ({
