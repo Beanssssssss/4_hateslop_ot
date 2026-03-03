@@ -143,10 +143,10 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const storedAssignments = window.localStorage.getItem(
+      const storedAssignments = window.sessionStorage.getItem(
         ASSIGNMENTS_STORAGE_KEY
       );
-      const storedUsedCards = window.localStorage.getItem(
+      const storedUsedCards = window.sessionStorage.getItem(
         USED_CARDS_STORAGE_KEY
       );
 
@@ -184,11 +184,11 @@ export default function Home() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      window.localStorage.setItem(
+      window.sessionStorage.setItem(
         ASSIGNMENTS_STORAGE_KEY,
         JSON.stringify(assignments)
       );
-      window.localStorage.setItem(
+      window.sessionStorage.setItem(
         USED_CARDS_STORAGE_KEY,
         JSON.stringify(Array.from(usedCardIds))
       );
